@@ -5,25 +5,20 @@ from pymongo import MongoClient
 from pprint import pprint
 import re
 
-
-
-
-
 headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Safari/537.36'}
-vacancies = [] # найденные вакансии
-limit_pages = 1 # количество просматриваемых страниц
-client = MongoClient('mongodb://localhost:27017/')
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Safari/537.36',
+    'Accept': '*/*'}
 
+vacancies = []  # найденные вакансии
+limit_pages = 1  # количество просматриваемых страниц
+client = MongoClient('mongodb://localhost:27017/')
 
 db = client['vacancy']
 dblist = client.list_database_names()
 print(dblist)
-
-
-
 collection = db.collection_vacancy
 collection.drop()
+print(f'Count docs = {collection.count_documents({})}')
 
 
 def str_to_int(s):
@@ -33,17 +28,18 @@ def str_to_int(s):
         return nums[0]
     return None
 
+
 def req_superjob(only_new):
     www_superjob = 'www.superjob.ru'
-    main_link = 'https://www.superjob.ru/vacancy/search'
+    main_link = 'https://russia.superjob.ru/vacancy/search/'
     next_page = True
     page = 0
-
+    n_new = 0
     while next_page:
-        params_requests = {'page': page}
+        params_requests = {'page': str(page)}
 
         if page + 1 > limit_pages:
-            return
+            break
         print(f'Page superjob = {page}')
         response = requests.get(main_link, params=params_requests, headers=headers)
         next_page = response.ok
@@ -52,7 +48,7 @@ def req_superjob(only_new):
 
             soup = bs(response.text, 'html.parser')
             vacancies_list = soup.findAll('div', {'class': 'f-test-search-result-item'})
-            n_new = 0
+
             for vacancy in vacancies_list:
                 vacancy_data = {}
 
@@ -89,25 +85,33 @@ def req_superjob(only_new):
                     vacancy_data['name'] = vacancy_name
                     vacancy_data['link'] = vacancy_link
                     vacancy_data['www'] = www_superjob
-                if only_new:
-                     if mongo_find_link(vacancy_link):
+
+                    if only_new:
+                        #print(vacancy_link)
+                        if collection.find_one({'link': vacancy_link}) is None:
+                            vacancies.append(vacancy_data)
+                            n_new += 1
+                    else:
+                        #print(vacancy_link)
                         vacancies.append(vacancy_data)
                         n_new += 1
-                else:
-                    vacancies.append(vacancy_data)
-            if only_new: print(f'Найдено {n_new} новых вакансий')
+    if only_new:
+        print(f'Найдено {n_new} новых вакансий')
+    else:
+        print(f'Найдено {n_new} вакансий')
+
 
 def req_hh(only_new):
     www_hh = 'www.hh.ru'
     main_link = 'https://hh.ru/search/vacancy'
     next_page = True
     page = 0
-
+    n_new = 0
     while next_page:
-        params_requests = {'page': page}
+        params_requests = {'page': str(page)}
 
         if page + 1 > limit_pages:
-            return
+            break
         print(f'Page hh = {page}')
         response = requests.get(main_link, params=params_requests, headers=headers)
         next_page = response.ok
@@ -115,7 +119,7 @@ def req_hh(only_new):
             page += 1
             soup = bs(response.text, 'html.parser')
             vacancies_list = soup.findAll('div', {'class': 'vacancy-serp-item__row vacancy-serp-item__row_header'})
-            n_new = 0
+
             for vacancy in vacancies_list:
                 vacancy_data = {}
                 salary = vacancy.find('div', {'class': 'vacancy-serp-item__sidebar'})
@@ -151,56 +155,49 @@ def req_hh(only_new):
                     vacancy_data['link'] = vacancy_link
                     vacancy_data['www'] = www_hh
 
-                vacancies.append(vacancy_data)
-
                 if only_new:
-                    if mongo_find_link(vacancy_link):
+                    if collection.find_one({'link': vacancy_link}) is None:
                         vacancies.append(vacancy_data)
                         n_new += 1
                 else:
                     vacancies.append(vacancy_data)
-            if only_new: print(f'Найдено {n_new} новых вакансий')
-
+                    n_new += 1
+    if only_new:
+        print(f'Найдено {n_new} новых вакансий')
+    else:
+        print(f'Найдено {n_new} вакансий')
 
 
 def mongo_insert():
-
     collection.insert_many(vacancies)
     print(f'Insert vacancies= {len(vacancies)}')
-
+    print(f'Count docs = {collection.count_documents({})}')
 
 def mongo_select(val):
-
-    result = collection.find({'$or': [{'salary_min':{'$gt': val}}, {'salary_max': {'$gt': val}}]})
+    result = collection.find({'$or': [{'salary_min': {'$gt': val}}, {'salary_max': {'$gt': val}}]})
     n = 0
     for i in result:
-        #pprint(i)
+        # pprint(i)
         n += 1
     print(f'Сумма больше {val} найдена в {n} вакансиях.')
 
-def mongo_find_link(val):
-    b = bool(collection.find_one({'vacancy_link': {"$eq": val}}))
-    if not b: print(f'find new vacancy {val}')
-    return not b
-
 
 find_new = False
-
-#Поиск
+print(f'limit_pages = {limit_pages}')
+# Поиск
 req_superjob(find_new)
 req_hh(find_new)
 #pprint(vacancies)
-print(f'Found vacancies= {len(vacancies)}')
 
-#запись результатов
+# запись результатов
 mongo_insert()
-#Поиск по значению зарплаты
+# Поиск по значению зарплаты
 mongo_select(100000)
 
-#поиск и запись новых вакансий
+# поиск и запись новых вакансий
 limit_pages = 2
+vacancies.clear()
+print(f'limit_pages = {limit_pages}')
 find_new = True
 req_superjob(find_new)
 req_hh(find_new)
-
-
