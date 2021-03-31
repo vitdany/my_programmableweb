@@ -9,7 +9,7 @@
 
 BOT_NAME = 'jobparser'
 
-SPIDER_MODULES = ['my_web.jobparser.jobparser.spiders']
+SPIDER_MODULES = ['jobparser.spiders']
 NEWSPIDER_MODULE = 'jobparser.spiders'
 
 LOG_ENABLED = True
