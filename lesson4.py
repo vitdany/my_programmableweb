@@ -10,16 +10,16 @@
 from pprint import pprint
 from lxml import html
 import requests
-from pymongo import MongoClient
+#from pymongo import MongoClient
 
-client = MongoClient('mongodb://localhost:27017/')
+#client = MongoClient('mongodb://localhost:27017/')
 
-db = client['my_news']
-dblist = client.list_database_names()
-print(dblist)
-collection = db.collection_mynews
-collection.drop()
-print(f'Count docs = {collection.count_documents({})}')
+#db = client['my_news']
+#dblist = client.list_database_names()
+#print(dblist)
+#collection = db.collection_mynews
+#collection.drop()
+#print(f'Count docs = {collection.count_documents({})}')
 
 header = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'}
@@ -32,7 +32,7 @@ def request_to(news):
         for title in titles:
             sdate = '20.03.2010'
             anews = {'source': link['source'],  'title': title, 'sdate': sdate}
-            collection.insert_one(anews)
+            #collection.insert_one(anews)
             print(title)
         print(len(titles))
 
@@ -44,4 +44,4 @@ lenta = {'source': 'https://lenta.ru',
 
 source_news = [yandex, mail, lenta]
 request_to(source_news)
-print(f'Count docs = {collection.count_documents({})}')
+#print(f'Count docs = {collection.count_documents({})}')
